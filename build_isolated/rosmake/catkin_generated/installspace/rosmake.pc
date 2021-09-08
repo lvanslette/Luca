@@ -1,0 +1,8 @@
+prefix=/opt/ros/kinetic
+
+Name: rosmake
+Description: Description of rosmake
+Version: 1.14.6
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

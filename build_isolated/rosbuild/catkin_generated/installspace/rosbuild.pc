@@ -1,0 +1,8 @@
+prefix=/opt/ros/kinetic
+
+Name: rosbuild
+Description: Description of rosbuild
+Version: 1.14.6
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

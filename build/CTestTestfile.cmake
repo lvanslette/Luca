@@ -1,0 +1,35 @@
+# CMake generated Testfile for 
+# Source directory: /home/pi/ros_catkin_ws/src
+# Build directory: /home/pi/ros_catkin_ws/build
+# 
+# This file includes the relevant testing commands required for 
+# testing this directory and lists subdirectories to be tested as well.
+subdirs("gtest")
+subdirs("catkin")
+subdirs("genmsg")
+subdirs("gencpp")
+subdirs("geneus")
+subdirs("genlisp")
+subdirs("gennodejs")
+subdirs("genpy")
+subdirs("cmake_modules")
+subdirs("roscpp_core/cpp_common")
+subdirs("message_generation")
+subdirs("message_runtime")
+subdirs("ros_environment")
+subdirs("ros/rosbuild")
+subdirs("roscpp_core/roscpp_traits")
+subdirs("ros_comm/rosgraph")
+subdirs("ros/roslang")
+subdirs("rospack")
+subdirs("ros/roslib")
+subdirs("ros_comm/rospy")
+subdirs("roscpp_core/rostime")
+subdirs("roscpp_core/roscpp_serialization")
+subdirs("ros/rosunit")
+subdirs("ros_comm/rosconsole")
+subdirs("std_msgs")
+subdirs("ros_comm_msgs/rosgraph_msgs")
+subdirs("ros_comm/xmlrpcpp")
+subdirs("ros_comm/roscpp")
+subdirs("WMR")

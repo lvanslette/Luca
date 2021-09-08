@@ -1,0 +1,8 @@
+prefix=/opt/ros/kinetic
+
+Name: rosunit
+Description: Description of rosunit
+Version: 1.14.6
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
