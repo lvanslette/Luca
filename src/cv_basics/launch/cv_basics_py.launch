@@ -1,0 +1,21 @@
+<launch>
+  
+  # nodes run on computer
+  <node
+    pkg="cv_basics"
+    type="webcam_sub.py"
+    name="webcam_sub"
+    output="screen"
+  />
+
+  # nodes run on pi
+  <machine name="ubuntu" address="192.168.1.172" user="ubuntu" env-loader="~/catkin_ws/src/cv_basics/ros_env.sh"/>
+  <node
+    machine="ubuntu"
+    pkg="cv_basics"
+    type="webcam_pub.py"
+    name="webcam_pub"
+    output="screen"
+  />
+
+</launch>
