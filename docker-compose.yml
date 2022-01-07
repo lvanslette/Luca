@@ -1,0 +1,55 @@
+version: '3.2'
+
+services:
+  ros:
+    tty: true
+    image: ros-image-local
+    volumes:
+      - type: bind
+        source: /home/ubuntu/catkin_ws
+        target: /home/catkin_ws/src/robot/scripts
+      - type: volume
+        source: ros-data
+        target: /home/catkin_ws
+    networks:
+      - foo
+    ports:
+      - "8888:8888"
+    #command: sleep 10m    # for debugging
+    command: >
+      bash -c "source /home/catkin_ws/devel/setup.bash && roslaunch
+      robot launch.launch"
+
+  lgpio-motor:
+    tty: true
+    image: lgpio-image
+    privileged: true
+    volumes:
+      - type: bind
+        source: /home/ubuntu/lgpio
+        target: /home/
+    networks:
+      - foo
+    command: >
+      bash -c "python3 /home/drive_motors.py"
+
+  lgpio-sensors:
+    tty: true
+    image: lgpio-image
+    privileged: true
+    volumes:
+      - type: bind
+        source: /home/ubuntu/lgpio
+        target: /home/
+    networks:
+      - foo
+    command: >
+      bash -c "python3 /home/sensors.py"
+
+volumes:
+  ros-data:
+
+networks:
+  foo:
+    driver: bridge
+
