@@ -16,7 +16,8 @@ fwd_pins = [19, 18, 12, 5]
 bwd_pins = [4, 16, 22, 25]
 
 # rate at which you should control the speed of the motors
-FREQ = 100
+#FREQ = 100
+FREQ = 250
 
 def gpio_setup():
   h = lg.gpiochip_open(0)
@@ -49,7 +50,7 @@ def vel2pwm(wheel_velocities):
 
   # calculate pwms
   wheel_speeds = [abs(vel) for vel in wheel_velocities]
-  new_pwms = [17+int(15*speed) for speed in wheel_speeds]
+  new_pwms = [int(300*speed) for speed in wheel_speeds]
   #new_pwms = [19,16,18,18]
   #new_pwms = [0,0,0,0]
   return directions, new_pwms

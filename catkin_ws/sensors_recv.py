@@ -41,12 +41,14 @@ if __name__ == '__main__':
     with conn:
       print('sensors_recv: connected by', addr)
       while not rospy.is_shutdown():
+        try:
+          data = pickle.loads(conn.recv(1024))
+        except:
+          break
         # data format (all in ints):
         #  [ 0 0 0 0 0    0 0 0 0         0 ]
         #   -ir sensors- -velocity-- -distance sensor-
-        data = pickle.loads(conn.recv(1024))
-        if not data:
-          break
+
         # publish data in the sensorData format
         publish(data, pub, r)
 

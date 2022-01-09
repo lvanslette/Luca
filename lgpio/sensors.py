@@ -5,6 +5,7 @@ import math   # math.pi
 import threading
 import pickle
 from threading import Thread,Lock
+continue_threading = True
 from functools import partial
 import signal
 
@@ -78,7 +79,7 @@ def get_distance(bus):
     pulse_duration = pulse_end - pulse_start
 
   distance = pulse_duration * 17150
-  distance = round(distance, 2)
+  distance = round(distance/100, 2)
   return distance
 
 def convert_to_binary(num, digits):
@@ -117,16 +118,21 @@ def thread_function_wheel_velocities():
   # thread function that gets current wheel velocities every 0.5 seconds
   N = 20
   time_period = 0.5
-  while True:
+  while continue_threading:
     time.sleep(time_period)
     w = list()
     for i,j in zip(counters, prev_counters):
       n = i - j
-      speed = (2*math.pi*n) / (N*time_period)
-      if speed > 255:
-        speed = 255
-      w.append(speed)
-    
+      # angular speed in rad/s
+      speed_ang = (2*math.pi*n) / (N*time_period)
+      if speed_ang > 255:
+        speed_ang = 255
+      # convert from rad/s to m/s
+      # radius is 3 cm, aka .03m
+      r = .03
+      speed_lin = round(r*speed_ang, 2)
+      w.append(speed_lin)
+     
     lock_vels.acquire()
     vels = w
     prev_counters = counters
@@ -136,10 +142,11 @@ def thread_function_wheel_velocities():
 def thread_function_distance(bus):
   global dist
   lock_dist = Lock()
-  while True:
+  while continue_threading:
     # modify global variable
     distance = get_distance(bus)
-    if distance > 255 or distance < 0:
+    # if its farther than a meter away, don't include it
+    if distance > 1 or distance < 0:
       distance = 0
     lock_dist.acquire()
     dist = distance
@@ -150,7 +157,7 @@ def thread_function_encoder(bus):
   global prev_counters
   lock_counters = Lock()
   last_status = get_encoder_counts(bus)
-  while True:
+  while continue_threading:
     encoder_status = get_encoder_counts(bus)
     lock_counters.acquire()
     changes = [a^b for a,b in zip(encoder_status, last_status)]
@@ -159,16 +166,20 @@ def thread_function_encoder(bus):
     last_status = encoder_status
 
 def shutdown_sensors(bus, x, y, z, signum, frame):
+  global continue_threading
   bus.write_byte_data(DEVICE, OLATA, 0)
   bus.write_byte_data(DEVICE, OLATB, 0)
+  # stop all threads with global variable
+  continue_threading = False
   x.join()
   y.join()
   z.join()
+  quit()
  
 if __name__ == '__main__':
   bus = bus_setup()
   # create a thread that gets distance measurements every 2 seconds,
-  # returns a valid number in cm or returns an error,
+  # returns a valid number in m or returns an error,
   # which includes a bad number (negative, really large, etc) or a number that
   # is too far away to really use
   x = threading.Thread(target=thread_function_distance, args=(bus,))
@@ -190,23 +201,14 @@ if __name__ == '__main__':
         continue
 
     while True:
-      try:
-        # get the ir sensor states: 0 means detected something, 1 means not
-        # detected
-        ir_states = get_ir_states(bus) 
-        time.sleep(.25)
-        sensors_send = ir_states + [vels[3], vels[2], vels[1], vels[0]]
-        sensors_send.append(int(dist))
-        # put sensor measurement list into a format to send over TCP connection
-        sensors_send_bytes = pickle.dumps(sensors_send)
-        s.sendall(sensors_send_bytes)
-      except KeyboardInterrupt:
-        print("gets here")
-        # set all pins to LOW on bus
-        bus.write_byte_data(DEVICE, OLATA, 0)
-        bus.write_byte_data(DEVICE, OLATB, 0)
-        x.join()
-        y.join()
-        break
+      # get the ir sensor states: 0 means detected something, 1 means not
+      # detected
+      ir_states = get_ir_states(bus) 
+      time.sleep(.25)
+      sensors_send = ir_states + [vels[3], vels[2], vels[1], vels[0]]
+      sensors_send.append(dist)
+      # put sensor measurement list into a format to send over TCP connection
+      sensors_send_bytes = pickle.dumps(sensors_send)
+      s.sendall(sensors_send_bytes)
 
 

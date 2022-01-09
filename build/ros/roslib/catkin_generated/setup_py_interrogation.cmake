@@ -1,7 +1,0 @@
-set(roslib_SETUP_PY_SETUP_MODULE "distutils.core")
-set(roslib_SETUP_PY_VERSION "1.14.6")
-set(roslib_SETUP_PY_SCRIPTS "")
-set(roslib_SETUP_PY_PACKAGES "ros;roslib")
-set(roslib_SETUP_PY_PACKAGE_DIRS "src/ros;src/roslib")
-set(roslib_SETUP_PY_MODULES "")
-set(roslib_SETUP_PY_MODULE_DIRS "")

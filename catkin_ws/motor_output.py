@@ -18,15 +18,9 @@ def handle_velocities(data, s):
   send_bytes = pickle.dumps(data.data)
   s.sendall(send_bytes)
 
-def turn_off_motors(s):
-  print("set motor vel to 0")
-  end_bytes = pickle.dumps([0,0,0,0])
-  s.sendall(end_bytes)
-
 # ros subscriber that takes in a list of velocities from map.py
 def init_node(s):
   rospy.init_node('velocity_listener', anonymous=True)
-  #rospy.on_shutdown(partial(turn_off_motors, s))
   rospy.Subscriber("velocity_chatter", Float32MultiArray, handle_velocities, s)
   rospy.spin()
 
