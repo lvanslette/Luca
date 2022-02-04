@@ -2,7 +2,6 @@
 # *** slam_algorithms.py ***
 # input: robot state and current map
 # output: robot new velocities
-
 import numpy as np
 import time
 import math
@@ -17,12 +16,12 @@ def bug0(q, c_points):
   # otherwise, keep going forward
   collision = False
   for point in c_points:
-    if distance(q, point) < 10:
+    if distance(q, point) < 0.15:
       collision = True
   # if there is a collision, increase angular velocity
   # if there isn't, increase forward velocity
   if collision:
-    return [0.0,0.0,0.1]
+    return [-0.0001,0.0,0.001]
   else:
-    return [0.0, 0.1, 0.0]
+    return [0.0001, 0.0, 0.0]
 
