@@ -21,7 +21,7 @@ import time
 from robot.msg import sensorData
 from std_msgs.msg import Float32MultiArray, String
 
-from slam_algorithms import bug0
+#from slam_algorithms import bug0
 
 sim = True
 
@@ -36,7 +36,7 @@ class Map:
     self.collision_points = []
     self.prev_distance = []
     self.new_wheel_velocities = Float32MultiArray()
-    self.new_wheel_velocities.data = [0.001,0.001,0.001,0.001]
+    self.new_wheel_velocities.data = [0.1,0.1,0.1,0.1]
     rospy.on_shutdown(self.on_shutdown)
 
     self.setup_connections()
@@ -66,16 +66,17 @@ class Map:
       rospy.Subscriber('sensor_chatter', sensorData, self.handle_msg)
     rospy.spin()
 
+# ----------------------------- START SIM FUNCTIONS --------------------------------
+
   def sim_handle_msg(self, msg):
     # SIM ENVIRONMENT: takes no sensor data, 
     w_vels = self.new_wheel_velocities.data
     self.wheel2body(w_vels)
     self.body2world(self.body_vels)
-    self.propagate_q()
-    #print("body_vels:", self.body_vels)
-    #print("s_vels:", self.s_vels)
+    self.q = self.propagate_q()
     self.new_cPoints = self.sim_cPoints()
     self.add_new_points()
+    print("list of collision points:", self.collision_points)
     self.get_new_wheel_velocities()
     self.publish_data()
     self.q_prev = self.q
@@ -85,9 +86,64 @@ class Map:
     new_cPoints = list()
     # for distance sensor, add a collision point that exists directly forward
     # for ir sensors, add points if they are within a small range of the robot
-
     new_cPoints.append(self.sim_distance())
+    new_cPoints.extend(self.sim_ir())
+    #print("all collision points:", new_cPoints)
     return new_cPoints
+
+  def sim_ir(self):
+    # create ir sensor location points in s frame
+    # for each ir sensor
+    #   if the ir sensor point is past the rectangle dimensions
+    #     add the collision point
+
+    # based on orientation and position, determine the ir sensor points that, if hitting
+    # the wall, would result in a collision
+    ir = self.get_ir_positions()
+    ir_collision_points = []
+    for point in ir:
+      point = self.is_colliding(point)
+      if point:
+        ir_collision_points.append(point)
+    return ir_collision_points
+
+  def get_ir_positions(self):
+    # q is in the world frame
+    q = self.q
+    # ir_body is the ir sensor estimated collision points in the body frame 
+    ir_body = self.ir_rotation_matrix
+    # ir_s is the body frame collision points transferred to world frame
+    ir_s = []
+    #print("robot position in world frame:", q[0], q[1])
+    for point in ir_body:
+      #print("point in body frame:", point)
+      point_s = [0,0]
+      point_s[0] = round(q[0]+point[0]*cos(q[2])-point[0]*sin(q[2]), 3)
+      point_s[1] = round(q[1]+point[1]*sin(q[2])+point[1]*cos(q[2]), 3)
+      #print("point in the world frame:", point_s)
+      ir_s.append(point_s)
+    return ir_s
+    
+
+  def is_colliding(self, ir):
+    # if its too far in the vertical
+    if ir[1] >= .44 or ir[1] <= -.44:
+      # truncate ir measurements
+      if ir[1] > .44:
+        ir[1] = .44
+      if ir[1] < -.44:
+        ir[1] = -.44
+      return ir
+    # if its too far in the horizontal
+    if ir[0] >= 0.39 or ir[0] <= -.39:
+      # truncate ir measurements
+      if ir[0] > .39:
+        ir[0] = .39
+      if ir[0] < -.39:
+        ir[0] = -.39
+      #nprint(ir)
+      return ir
+    return 0
 
   def sim_distance(self):
     q = self.q
@@ -164,6 +220,7 @@ class Map:
     else:
       return points[1]
 
+# --------------------------- END SIM FUNCTIONS -----------------------------
 
   def handle_msg(self, msg):
     # shouldn't the velocities get changed at the end, using prev velocities 
@@ -174,7 +231,7 @@ class Map:
     self.wheel2body(w_vels)
     self.body2world(self.body_vels)
     # using new body vels, get new q
-    self.propagate_q()
+    self.q = self.propagate_q()
     # get new collision points
     self.new_cPoints = list()
     self.new_cPoints.extend(self.handle_ir(list(msg.ir_states)))
@@ -202,7 +259,7 @@ class Map:
     new_q[2] = self.q_prev[2]+self.s_vels[2]*self.t_period
     if new_q[2] > 2*pi:
       new_q[2] = new_q[2]%(2*pi)
-    self.q = new_q
+    #self.q = new_q
     return new_q
 
 
@@ -210,7 +267,7 @@ class Map:
     # WHEEL TO BODY VELOCITY
     # vels = [vel motor A, B, C, D] of each wheel as a float
     # output: q_dot = [x_dot,y_dot,theta_dot]
-    H_0_pinv = (1/.03)*np.array([[ 1/4,   1/4,  1/4,  1/4],
+    H_0_pinv =         np.array([[ 1/4,   1/4,  1/4,  1/4],
                                  [-1/4,   1/4,  1/4, -1/4],
                                  [   0, -25/6, 25/6,    0]])
 
@@ -240,6 +297,7 @@ class Map:
       state = ir_states[index]
       if state == 0:
         collision_point = [0,0]
+        # TODO: fix this, should be ir rotation matrix * ir point in body frame
         collision_point[0] += q[0] + self.ir_rotation_matrix[index][0] 
         collision_point[1] += q[1] + self.ir_rotation_matrix[index][1] 
         collisions.append(collision_point) 
@@ -259,17 +317,21 @@ class Map:
     for c_point in self.new_cPoints:
       # if there is more than one collision point with the same values, don't add it
       # also don't add empty points
-      if self.collision_points.count(c_point) < 1 and c_point != []:
+      #if self.collision_points.count(c_point) < 1 and c_point != []:
+      if c_point != []:
         self.collision_points.append(c_point)
-      else: 
-        self.new_cPoints.remove(c_point)
+
+      # once we've added the point, if its a duplicate, remove it
+      if len(self.collision_points) != len(set(map(tuple,self.collision_points))):
+        self.collision_points.remove(c_point)
     return self
 
   def get_new_wheel_velocities(self):
     # using the new collision points, current position, and current body velocity,
     # calculate new wheel velocities
 
-    self.new_body_velocities = self.calc_new_vels()
+    self.calc_new_vels()
+    self.new_body_velocities = self.world2body()
     self.new_wheel_velocities.data = self.body2wheel()
     return self
 
@@ -279,30 +341,42 @@ class Map:
     # -> if next position is close enough to a collision point, turn CCW away from it
     # -> otherwise, continue forward (aka to your goal position)
     # NEED TO MODIFY TO ACCOUNT FOR ANGULAR VELOCITY (SLIPPAGE AFFECTING X,Y)
-
     q_predict = self.propagate_q()
+    print("q: ", self.q, ", predicted q:", q_predict)
     return self.bug0(q_predict[0:2], self.collision_points)
-    #return bug0(q_predict[0:2], self.collision_points)
-    #return [0.0,0.0,0.0]
-
   
   def bug0(self, q, c_points):
-    collision = False
     for point in c_points:
       proximity = round(sqrt((q[0]-point[0])**2 + (q[1]-point[1])**2), 2)
-      # if the collision point is within 30 cm of the next state
+      # if the collision point is within 15 cm of the next state
       if proximity < 0.15:
-        collision = True
-    if collision:
-      # bug 0, turn right until can go forward
-      #self.q[2] += .1
-      print("collision")
-      return [-0.0001,0.000,0.001]
-      #return [0.0,0.0,0.0]
-      #return [0.0,0.0,0.01]
-    else:
-      return [0.0001,0.000,0.0]
-      #return [0.0,0.0,0.0]
+        # if we're about to collide, change the robot velocities to go the opposite way
+        self.s_vels = self.other_way(point)
+    # if we aren't colliding with anything, keep going the direction you were going
+    return self
+
+  def other_way(self, point):
+    # determine which direction the point is located relative to robot in s frame
+    difference = []
+    for i,j in zip(self.q[0:2],point):
+      difference.append(j-i)
+    ang = atan2(difference[1],difference[0])
+    new_ang = (3*pi/4+ang)%(2*pi)
+    #print("ang in s frame:", ang, "new ang in s frame:", new_ang)
+    new_vels = [cos(new_ang)*0.1, sin(new_ang)*0.1, 0]
+    # TODO: band-aid fix for now, need to go back and add ir sensors in sim
+    #self.q[2] = new_ang
+    #print("new vels in s frame:", new_vels)
+    print()
+    # go in the direction of the angle
+    return new_vels
+    # go the opposite direction of the one calculated
+
+  def world2body(self):
+    self.R_s2b = np.linalg.pinv(self.R_b2s)
+    b_vels = [round(vel, 5) for vel in np.dot(self.R_s2b, np.array(self.s_vels))]
+    #print("body vels, from world:",b_vels)
+    return b_vels
   
   def body2wheel(self):
     # WORLD TO BODY VELOCITY
@@ -310,7 +384,7 @@ class Map:
     #self.new_body_velocities = np.dot(R_s2b, self.new_world_velocities) 
 
     # BODY TO WHEEL VELOCITY
-    H_0 = (1/.03)*np.array([[1, -1,  0],
+    H_0 =         np.array([[1, -1,  0],
                             [1,  1, -0.12],
                             [1,  1,  0.12],
                             [1, -1,  0]])
@@ -331,6 +405,7 @@ class Robot:
     self.w_vels
     self.body_vels
 """ 
+
 
 if __name__ == '__main__':
   Map()
